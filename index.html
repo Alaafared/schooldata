@@ -785,7 +785,7 @@ async function loadUsers(){
     tr.innerHTML = `
       <td>${u.name||'—'}</td>
       <td>${u.email}</td>
-      <td>${u.role==='super_admin'?'مسئول عام':'مسئول محلي'}</td>
+      <td>${u.role==='super_admin'?'مسئول عام':'مسئول ادارة'}</td>
       <td>${u.administration||'—'}</td>
       <td><button class="btn ghost" onclick="deleteUser('${doc.id}')" style="color:var(--danger);border-color:var(--danger);">حذف</button></td>
     `;
