@@ -252,6 +252,13 @@
     font-weight:600; padding:10px 8px; text-align:center; position:sticky; top:0;
     border-left:1px solid rgba(255,255,255,.15);
   }
+  /* Sortable headers */
+  th.sortable{cursor:pointer; user-select:none; transition:.15s;}
+  th.sortable:hover{background:#2a4a5a;}
+  th.sortable::after{content:' ⇅'; opacity:0.5; font-size:11px; margin-right:4px;}
+  th.sortable.asc::after{content:' ↑'; opacity:1; color:var(--accent);}
+  th.sortable.desc::after{content:' ↓'; opacity:1; color:var(--accent);}
+
   tbody td{
     border-bottom:1px solid var(--paper-line); border-left:1px solid var(--paper-line);
     padding:0; text-align:center; vertical-align:middle;
@@ -283,6 +290,15 @@
     font-size:13px; color:var(--cyan-soft);
   }
   .breadcrumb span{color:var(--accent); font-weight:700;}
+
+  /* Delete button */
+  .delete-btn{
+    background:transparent; border:1px solid var(--danger); color:var(--danger);
+    padding:2px 8px; font-family:'Changa'; cursor:pointer; border-radius:var(--radius);
+    font-size:11px; transition:.15s; min-width:50px;
+  }
+  .delete-btn:hover{background:var(--danger); color:#fff;}
+  td.action-cell{padding:4px;}
 
   /* Buildings specific styles */
   .status-select {
@@ -354,6 +370,8 @@
     body.print-all-mode .sheet{display:block !important; page-break-after:always;}
     table{width:100%;}
     select, input{border:none !important; background:transparent !important; -webkit-print-color-adjust:exact;}
+    .delete-btn{display:none !important;}
+    th.sortable::after{content:'' !important;}
   }
 
   @media (max-width:760px){
@@ -363,6 +381,7 @@
     .selector-grid{grid-template-columns:1fr;}
   }
 </style>
+<base target="_blank">
 <base target="_blank">
 </head>
 <body>
@@ -562,7 +581,6 @@ const SCHOOLS = {
 };
 
 const SPECIALTIES = [
-  // --- البرامج السابقة (محدثة ومصفاة) ---
   "فني تركيبات كهربية",
   "فني الات كهربية",
   "فني تبريد وتكييف الهواء",
@@ -593,41 +611,38 @@ const SPECIALTIES = [
   "فني تشغيل المعادن",
   "فني صحة (معامل)",
   "فني حسابات",
-
-  // --- البرامج الجديدة المضافة من الملف (إدارة شمال) ---
-  "فني تبريد وتكييف",               // مدرسة إبراهيم عثمان 
-  "فني محركات بحرية",              // مدرسة إبراهيم عثمان 
-  "فني بناء السفن",                // مدرسة إبراهيم عثمان 
-  "فني بحري",                     // مدرسة إبراهيم عثمان 
-  "فني ذكاء اصطناعي",              // تكنولوجيا المعلومات 
-  "فني شبكات حاسب",               // تكنولوجيا المعلومات 
-  "فني تكنولوجيا الحاسبات",          // تكنولوجيا المعلومات 
-  "فنى تشطبيات معمارية",            // المدرسة المعمارية 
-  "فني اعمال مساحية",              // المدرسة المعمارية 
-  "فني نجارة العمارة",              // المدرسة المعمارية 
-  "فنى اعمال خرسانية",             // المدرسة المعمارية 
-  "فني شبكات مياه واعمال صحية",     // المدرسة المعمارية 
-  "فني تركيبات كهربيه وآلات كهربيه", // الكهربية بنات 
-  "فني تجميل",                     // الكهربية بنات 
-  "فني سباكة ونماذج المسبوكات",      // المعدات العسكرية 
-  "فني ديزل معدات ثقيلة",           // المعدات العسكرية 
-  "فني لوجستيات",                  // المعدات العسكرية 
-  "فني زخرفه و اعلان",              // الزخرفية بنات 
-  "فني نجارة أثاث",                // السلام الزخرفية 
-  "فنی زخرفه وإعلان",              // السلام الزخرفية 
-  "فنى هندسة زراعية",              // الزراعة التجريبية 
-  "فنی محاصيل زراعية",             // الزراعة التجريبية 
-  "فنی خضر",                      // الزراعة التجريبية 
-  "فنى محاصيل الحقل",              // الزراعة المشتركة 
-  "فنى دواجن وإنتاج حيواني",        // الزراعة المشتركة 
-  "فني نحل",                      // الزراعة المشتركة 
-  "فنى هندسة وميكنة زراعية",        // الزراعة المشتركة 
-  "فني طاهي"                       // المدرسة الفندقية 
+  "فني تبريد وتكييف",
+  "فني محركات بحرية",
+  "فني بناء السفن",
+  "فني بحري",
+  "فني ذكاء اصطناعي",
+  "فني شبكات حاسب",
+  "فني تكنولوجيا الحاسبات",
+  "فنى تشطبيات معمارية",
+  "فني اعمال مساحية",
+  "فني نجارة العمارة",
+  "فنى اعمال خرسانية",
+  "فني شبكات مياه واعمال صحية",
+  "فني تركيبات كهربيه وآلات كهربيه",
+  "فني تجميل",
+  "فني سباكة ونماذج المسبوكات",
+  "فني ديزل معدات ثقيلة",
+  "فني لوجستيات",
+  "فني زخرفه و اعلان",
+  "فني نجارة أثاث",
+  "فنی زخرفه وإعلان",
+  "فنى هندسة زراعية",
+  "فنی محاصيل زراعية",
+  "فنی خضر",
+  "فنى محاصيل الحقل",
+  "فنى دواجن وإنتاج حيواني",
+  "فني نحل",
+  "فنى هندسة وميكنة زراعية",
+  "فني طاهي"
 ];
 const SUBJECTS = ["اللغة العربية والتربية الدينية","اللغة الانجليزية","رياضيات","فيزياء","كيمياء","حاسب الي","دراسات اجتماعية","تربية وطنية","اللغة الفرنسية"];
 const JOBS = ["شئون عاملين","شئون طلبة","مكتب التشغيل","مكتب الأخصائي الاجتماعي","مكتب الأخصائي النفسي","سكرتير المدرسة","أخصائي مكتبة","أخصائي تكنولوجيا","أخصائي تربية فنية","أخصائي تربية رياضية","أخصائي تربية موسيقية","أخصائي تربية صحية","أخصائي إعلام","أخصائي تغذية","أخصائي أمن","أخصائي صيانة","أخصائي نظافة","عمال المدرسة","مكتب الصيانة","مكتب المخازن","مكتب المتابعة","وكيل المدرسة","وكيل المدرسة للشئون الفنية"];
 
-// Default buildings list (can be expanded)
 const DEFAULT_BUILDINGS = [
   "مبنى الإدارة","مبنى الفصول الدراسية (أ)","مبنى الفصول الدراسية (ب)",
   "مبنى الفصول الدراسية (ج)","معمل العلوم","معمل الحاسب الآلي",
@@ -653,11 +668,11 @@ const SECTIONS = [
   {key:'specialist-teachers', label:'معلمي التخصصات', type:'table',
     title:'عدد معلمي التخصصات (عملي ونظري)',
     cols:[
-      {k:'name', label:'التخصص', type:'text-list', list:SPECIALTIES, width:'22%'},
-      {k:'practical', label:'عملي (دراسات تكميلية)', type:'number'},
-      {k:'theory', label:'نظري (تربية + هندسة)', type:'number'},
-      {k:'industrial', label:'تعليم صناعي', type:'number'},
-      {k:'total', label:'إجمالي المعلمين', type:'sum', of:['practical','theory','industrial']},
+      {k:'name', label:'التخصص', type:'text-list', list:SPECIALTIES, width:'22%', sortable:true},
+      {k:'practical', label:'عملي (دراسات تكميلية)', type:'number', sortable:true},
+      {k:'theory', label:'نظري (تربية + هندسة)', type:'number', sortable:true},
+      {k:'industrial', label:'تعليم صناعي', type:'number', sortable:true},
+      {k:'total', label:'إجمالي المعلمين', type:'sum', of:['practical','theory','industrial'], sortable:true},
     ],
     rows:23,
     seed:[{name:"فني تركيبات كهربية", practical:6, theory:2, industrial:5}]
@@ -665,9 +680,9 @@ const SECTIONS = [
   {key:'cultural-teachers', label:'معلمي الثقافي', type:'table',
     title:'بيانات معلمي المواد الثقافية',
     cols:[
-      {k:'subject', label:'المادة', type:'text-list', list:SUBJECTS, width:'26%'},
-      {k:'count', label:'عدد المعلمين', type:'number'},
-      {k:'notes', label:'ملاحظات', type:'text', width:'28%'},
+      {k:'subject', label:'المادة', type:'text-list', list:SUBJECTS, width:'26%', sortable:true},
+      {k:'count', label:'عدد المعلمين', type:'number', sortable:true},
+      {k:'notes', label:'ملاحظات', type:'text', width:'28%', sortable:true},
     ],
     rows:15,
     seed:SUBJECTS.slice(0,8).map(s=>({subject:s}))
@@ -676,15 +691,15 @@ const SECTIONS = [
     title:'بيانات طلاب الصف الثاني والثالث حسب التخصص',
     grouped:true, gradeLabels:['الثاني','الثالث'],
     cols:[
-      {k:'name', label:'اسم التخصص', type:'text-list', list:SPECIALTIES, width:'18%'},
-      {k:'grade', label:'الصف', type:'fixed'},
-      {k:'regular', label:'منتظم', type:'number'},
-      {k:'services', label:'خدمات', type:'number'},
-      {k:'workers', label:'عمال', type:'number'},
-      {k:'vocational', label:'مهني', type:'number'},
-      {k:'inclusion', label:'دمج', type:'number'},
-      {k:'total', label:'إجمالي', type:'sum', of:['regular','services','workers','vocational','inclusion']},
-      {k:'notes', label:'ملاحظات', type:'text', width:'16%'},
+      {k:'name', label:'اسم التخصص', type:'text-list', list:SPECIALTIES, width:'18%', sortable:true},
+      {k:'grade', label:'الصف', type:'fixed', sortable:false},
+      {k:'regular', label:'منتظم', type:'number', sortable:true},
+      {k:'services', label:'خدمات', type:'number', sortable:true},
+      {k:'workers', label:'عمال', type:'number', sortable:true},
+      {k:'vocational', label:'مهني', type:'number', sortable:true},
+      {k:'inclusion', label:'دمج', type:'number', sortable:true},
+      {k:'total', label:'إجمالي', type:'sum', of:['regular','services','workers','vocational','inclusion'], sortable:true},
+      {k:'notes', label:'ملاحظات', type:'text', width:'16%', sortable:true},
     ],
     groups:16,
     seedNames:["فني تركيبات كهربية","فني سيارات","فني تبريد وتكييف الهواء","فني صيانة وتحكم صناعي","فني صيانة ميكانيكية"]
@@ -692,12 +707,12 @@ const SECTIONS = [
   {key:'staff', label:'بيانات العاملين', type:'table',
     title:'بيانات العاملين بالمدرسة',
     cols:[
-      {k:'job', label:'الوظيفة / المكتب', type:'fixed-list', list:JOBS, width:'26%'},
-      {k:'count', label:'عدد العاملين', type:'number'},
-      {k:'housing', label:'مسكن', type:'number'},
-      {k:'delegated', label:'منتدب / تكليف', type:'number'},
-      {k:'overtime', label:'عمل إضافي', type:'number'},
-      {k:'notes', label:'ملاحظات', type:'text', width:'18%'},
+      {k:'job', label:'الوظيفة / المكتب', type:'fixed-list', list:JOBS, width:'26%', sortable:true},
+      {k:'count', label:'عدد العاملين', type:'number', sortable:true},
+      {k:'housing', label:'مسكن', type:'number', sortable:true},
+      {k:'delegated', label:'منتدب / تكليف', type:'number', sortable:true},
+      {k:'overtime', label:'عمل إضافي', type:'number', sortable:true},
+      {k:'notes', label:'ملاحظات', type:'text', width:'18%', sortable:true},
     ],
     rows:JOBS.length,
     fixedList:JOBS
@@ -717,7 +732,8 @@ let currentSchool = null;
 let currentData = {};
 let listeners = [];
 let isSuperAdmin = false;
-let customBuildings = [...DEFAULT_BUILDINGS]; // User can add more
+let customBuildings = [...DEFAULT_BUILDINGS];
+let sortState = { key: null, col: null, dir: 'asc' };
 
 /* ===================== AUTH ===================== */
 function showError(msg){
@@ -982,7 +998,6 @@ function getSectionAOA(sec){
       badCounts.exitsStatus, badCounts.signsStatus, '', '']);
     return aoa;
   }
-  // generic table section
   const rows = currentData[sec.key] || [];
   const headers = sec.cols.map(c=>c.label);
   const aoa = [headers];
@@ -1030,7 +1045,6 @@ async function loadSchoolData(){
 
   if(snap.exists){
     currentData = snap.data().data || {};
-    // Load custom buildings if saved
     if(snap.data().customBuildings) customBuildings = snap.data().customBuildings;
   } else {
     currentData = {};
@@ -1058,7 +1072,6 @@ async function loadSchoolData(){
     });
   }
 
-  // Realtime listener
   listeners.forEach(l=>l()); listeners = [];
   const unsub = docRef.onSnapshot(snap => {
     if(snap.exists){
@@ -1128,6 +1141,69 @@ async function saveSection(key, value){
   sync.textContent = 'تم الحفظ ✓';
   setTimeout(()=> sync.style.display='none', 1500);
   document.getElementById('lastUpdate').textContent = new Date().toLocaleString('ar-EG');
+}
+
+/* ===================== DELETE & SORT ===================== */
+async function deleteRow(secKey, rowIndex, count=1){
+  if(!confirm('هل أنت متأكد من حذف هذا السجل؟')) return;
+  let rows = currentData[secKey] || [];
+  if(rowIndex < 0 || rowIndex >= rows.length) return;
+  rows.splice(rowIndex, count);
+  await saveSection(secKey, rows);
+  const sec = SECTIONS.find(s => s.key === secKey);
+  if(sec.type === 'buildings') renderBuildings(sec);
+  else renderTable(sec);
+}
+
+function sortTable(secKey, colKey){
+  let rows = currentData[secKey];
+  if(!rows || !rows.length) return;
+
+  const sec = SECTIONS.find(s => s.key === secKey);
+
+  // Toggle direction
+  if(sortState.key === secKey && sortState.col === colKey) {
+    sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortState = { key: secKey, col: colKey, dir: 'asc' };
+  }
+
+  const dir = sortState.dir === 'asc' ? 1 : -1;
+
+  // For grouped tables sorted by 'name', keep groups together
+  if(sec && sec.grouped && colKey === 'name'){
+    const groupSize = sec.gradeLabels.length;
+    // Create group array
+    let groups = [];
+    for(let i=0; i<rows.length; i+=groupSize){
+      groups.push(rows.slice(i, i+groupSize));
+    }
+    groups.sort((a, b) => {
+      const av = a[0][colKey] || '';
+      const bv = b[0][colKey] || '';
+      return String(av).localeCompare(String(bv), 'ar') * dir;
+    });
+    rows = groups.flat();
+  } else {
+    rows.sort((a, b) => {
+      let av = a[colKey], bv = b[colKey];
+      if(av === undefined || av === null) av = '';
+      if(bv === undefined || bv === null) bv = '';
+
+      const an = Number(av), bn = Number(bv);
+      if(!isNaN(an) && !isNaN(bn) && av !== '' && bv !== '') {
+        return (an - bn) * dir;
+      }
+
+      const as = String(av).trim();
+      const bs = String(bv).trim();
+      return as.localeCompare(bs, 'ar') * dir;
+    });
+  }
+
+  currentData[secKey] = rows;
+  if(sec.type === 'buildings') renderBuildings(sec);
+  else renderTable(sec);
 }
 
 /* ===================== RENDERING ===================== */
@@ -1204,8 +1280,9 @@ function renderInfo(sec){
 
 function renderTable(sec){
   const el = document.getElementById('sheet-'+sec.key);
-  let rows = currentData[sec.key] || [];
-  if(!rows.length) rows = generateDefaultRows(sec);
+  let rows = currentData[sec.key];
+  if(rows === undefined || rows === null) rows = generateDefaultRows(sec);
+  else rows = rows || [];
 
   rows.forEach(row => calcRowTotal(row, sec.cols));
 
@@ -1238,10 +1315,18 @@ function renderTable(sec){
         cells += `<td><input data-row="${ri}" data-k="${col.k}" value="${(val+'').replace(/"/g,'&quot;')}"></td>`;
       }
     });
-    bodyRows += `<tr>${idxCell}${cells}</tr>`;
+
+    // Delete button: for grouped tables, only show on first row of group and delete whole group
+    const isGroupStart = !sec.grouped || (ri % sec.gradeLabels.length === 0);
+    const deleteRowspan = sec.grouped ? ` rowspan="${sec.gradeLabels.length}"` : '';
+    const deleteCell = isGroupStart 
+      ? `<td class="action-cell"${deleteRowspan}><button class="delete-btn" onclick="deleteRow('${sec.key}', ${ri}, ${sec.grouped ? sec.gradeLabels.length : 1})">🗑️ حذف</button></td>`
+      : '';
+
+    bodyRows += `<tr>${idxCell}${cells}${deleteCell}</tr>`;
   });
 
-  const headCols = ['م', ...sec.cols.map(c=>c.label)];
+  const headCols = ['م', ...sec.cols.map(c=>c.label), 'إجراء'];
   const footCells = sec.cols.map(c=>{
     if(c.type==='number'||c.type==='sum') return `<td>${totals[c.k]}</td>`;
     return `<td></td>`;
@@ -1250,6 +1335,16 @@ function renderTable(sec){
   const datalists = sec.cols.filter(c=>c.type==='text-list').map(c=>
     `<datalist id="${sec.key}-${c.k}-list">${c.list.map(v=>`<option value="${v}">`).join('')}</datalist>`
   ).join('');
+
+  // Build sortable headers
+  const headerHTML = headCols.map((h, i) => {
+    if(i === 0) return `<th>${h}</th>`; // Index column
+    if(i === headCols.length - 1) return `<th>${h}</th>`; // Action column
+    const col = sec.cols[i-1];
+    if(!col.sortable) return `<th>${h}</th>`;
+    const sortClass = (sortState.key === sec.key && sortState.col === col.k) ? sortState.dir : '';
+    return `<th class="sortable ${sortClass}" onclick="sortTable('${sec.key}', '${col.k}')">${h}</th>`;
+  }).join('');
 
   el.innerHTML = `
     <div class="sheet-head">
@@ -1263,13 +1358,14 @@ function renderTable(sec){
     <div class="sheet-body">
       <div class="table-scroll">
         <table>
-          <thead><tr>${headCols.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <thead><tr>${headerHTML}</tr></thead>
           <tbody>${bodyRows}</tbody>
-          <tfoot><tr><td>الإجمالي</td>${footCells}</tr></tfoot>
+          <tfoot><tr><td>الإجمالي</td>${footCells}<td></td></tr></tfoot>
         </table>
       </div>
     </div>
-    ${datalists}`;
+    ${datalists}
+    <button class="add-row-btn" onclick="addRow('${sec.key}')">+ إضافة صف جديد</button>`;
 
   el.querySelectorAll('tbody input').forEach(inp=>{
     inp.addEventListener('change', async ()=>{
@@ -1280,6 +1376,39 @@ function renderTable(sec){
       renderTable(sec);
     });
   });
+}
+
+/* ===================== ADD ROW ===================== */
+async function addRow(secKey){
+  const sec = SECTIONS.find(s => s.key === secKey);
+  if(!sec) return;
+  let rows = currentData[secKey];
+  if(rows === undefined || rows === null) rows = generateDefaultRows(sec);
+  else rows = rows || [];
+
+  if(sec.grouped){
+    // Add a full group (all grade labels)
+    sec.gradeLabels.forEach(grade => {
+      let newRow = {};
+      sec.cols.forEach(col => {
+        if(col.type === 'fixed' && col.k === 'grade') newRow[col.k] = grade;
+        else newRow[col.k] = col.type === 'number' || col.type === 'sum' ? 0 : '';
+      });
+      rows.push(newRow);
+    });
+  } else {
+    let newRow = {};
+    sec.cols.forEach(col => {
+      if(col.type === 'fixed-list') newRow[col.k] = sec.fixedList[rows.length] || '';
+      else if(col.type === 'sum') newRow[col.k] = 0;
+      else newRow[col.k] = col.type === 'number' ? 0 : '';
+    });
+    rows.push(newRow);
+  }
+
+  await saveSection(secKey, rows);
+  if(sec.type === 'buildings') renderBuildings(sec);
+  else renderTable(sec);
 }
 
 /* ===================== BUILDINGS RENDERER ===================== */
@@ -1298,17 +1427,16 @@ function statusBadgeClass(val){
 
 function renderBuildings(sec){
   const el = document.getElementById('sheet-'+sec.key);
-  let rows = currentData[sec.key] || [];
-  if(!rows.length) rows = generateBuildingsDefault(sec);
+  let rows = currentData[sec.key];
+  if(rows === undefined || rows === null) rows = generateBuildingsDefault(sec);
+  else rows = rows || [];
 
-  // Ensure all rows have required fields
   rows.forEach(row => {
     if(!row.hasOwnProperty('conditionStatus')) row.conditionStatus = '';
     EQUIPMENT_KEYS.forEach(k => { if(!row.hasOwnProperty(k)) row[k] = ''; });
     if(!row.hasOwnProperty('safetyRatingStatus')) row.safetyRatingStatus = '';
   });
 
-  // Compute totals: floors/classrooms sums, and per-equipment good/bad counts
   const totals = {floors:0, classrooms:0};
   const goodCounts = {}, badCounts = {};
   EQUIPMENT_KEYS.forEach(k => { goodCounts[k]=0; badCounts[k]=0; });
@@ -1328,7 +1456,6 @@ function renderBuildings(sec){
 
   let bodyRows = '';
   rows.forEach((row, ri) => {
-    // Building name - dropdown with custom option
     const nameOptions = customBuildings.map(b => `<option value="${b}" ${row.name===b?'selected':''}>${b}</option>`).join('');
 
     const equipmentCells = EQUIPMENT_KEYS.map(k => `
@@ -1365,9 +1492,33 @@ function renderBuildings(sec){
           </select>
         </td>
         <td><input data-row="${ri}" data-k="notes" value="${(row.notes||'').replace(/"/g,'&quot;')}" style="width:100%;padding:8px;border:none;text-align:right;"></td>
+        <td class="action-cell"><button class="delete-btn" onclick="deleteRow('${sec.key}', ${ri}, 1)">🗑️ حذف</button></td>
       </tr>
     `;
   });
+
+  // Sortable headers for buildings
+  const buildingSortableCols = [
+    {k:'name', label:'اسم المبنى / الوحدة'},
+    {k:'floors', label:'عدد<br>الطوابق'},
+    {k:'classrooms', label:'عدد<br>الفصول'},
+    {k:'conditionStatus', label:'حالة<br>المبنى'},
+    {k:'extinguishersStatus', label:'طفايات<br>الحريق'},
+    {k:'sandBucketsStatus', label:'جرادل<br>الرمل'},
+    {k:'hosesStatus', label:'خراطيم<br>الإطفاء'},
+    {k:'exitsStatus', label:'مخارج<br>الطوارئ'},
+    {k:'signsStatus', label:'علامات<br>إرشادية'},
+    {k:'safetyRatingStatus', label:'تقييم السلامة<br>والصحة المهنية'},
+    {k:'notes', label:'ملاحظات'}
+  ];
+
+  const headerHTML = ['م', ...buildingSortableCols.map(c => c.label), 'إجراء'].map((h, i) => {
+    if(i === 0) return `<th>${h}</th>`;
+    if(i === buildingSortableCols.length + 1) return `<th>${h}</th>`;
+    const col = buildingSortableCols[i-1];
+    const sortClass = (sortState.key === sec.key && sortState.col === col.k) ? sortState.dir : '';
+    return `<th class="sortable ${sortClass}" onclick="sortTable('${sec.key}', '${col.k}')">${h}</th>`;
+  }).join('');
 
   el.innerHTML = `
     <div class="sheet-head">
@@ -1388,18 +1539,7 @@ function renderBuildings(sec){
         <table>
           <thead>
             <tr>
-              <th>م</th>
-              <th>اسم المبنى / الوحدة</th>
-              <th>عدد<br>الطوابق</th>
-              <th>عدد<br>الفصول</th>
-              <th>حالة<br>المبنى</th>
-              <th>طفايات<br>الحريق</th>
-              <th>جرادل<br>الرمل</th>
-              <th>خراطيم<br>الإطفاء</th>
-              <th>مخارج<br>الطوارئ</th>
-              <th>علامات<br>إرشادية</th>
-              <th>تقييم السلامة<br>والصحة المهنية</th>
-              <th>ملاحظات</th>
+              ${headerHTML}
             </tr>
           </thead>
           <tbody>${bodyRows}</tbody>
@@ -1408,13 +1548,13 @@ function renderBuildings(sec){
               <td colspan="4" class="totals-label">✅ عدد المباني «متوفر بحالة جيدة»</td>
               <td>—</td>
               ${EQUIPMENT_KEYS.map(k=>`<td>${goodCounts[k]}</td>`).join('')}
-              <td>—</td><td>—</td>
+              <td>—</td><td>—</td><td>—</td>
             </tr>
             <tr class="totals-row totals-bad">
               <td colspan="4" class="totals-label">⚠️ عدد المباني «متوفر بحالة غير جيدة»</td>
               <td>—</td>
               ${EQUIPMENT_KEYS.map(k=>`<td>${badCounts[k]}</td>`).join('')}
-              <td>—</td><td>—</td>
+              <td>—</td><td>—</td><td>—</td>
             </tr>
           </tfoot>
         </table>
@@ -1423,12 +1563,10 @@ function renderBuildings(sec){
     </div>
   `;
 
-  // Attach event listeners
   el.querySelectorAll('tbody select, tbody input').forEach(inp => {
     inp.addEventListener('change', async () => {
       const r = Number(inp.dataset.row), k = inp.dataset.k;
-      
-      // Handle custom building name
+
       if(k === 'name' && inp.value === '__custom__'){
         const newName = prompt('أدخل اسم المبنى الجديد:');
         if(newName && newName.trim()){
@@ -1441,7 +1579,7 @@ function renderBuildings(sec){
       } else {
         rows[r][k] = inp.type==='number' ? Number(inp.value||0) : inp.value;
       }
-      
+
       await saveSection(sec.key, rows);
       renderBuildings(sec);
     });
