@@ -383,6 +383,7 @@
 </style>
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 
@@ -704,8 +705,8 @@ const SECTIONS = [
     groups:16,
     seedNames:["فني تركيبات كهربية","فني سيارات","فني تبريد وتكييف الهواء","فني صيانة وتحكم صناعي","فني صيانة ميكانيكية"]
   },
-  {key:'staff', label:'بيانات العاملين', type:'table',
-    title:'بيانات العاملين بالمدرسة',
+  {key:'staff', label:'بيانات العاملين والاداريين', type:'table',
+    title:'بيانات العاملين والاداريين بالمدرسة',
     cols:[
       {k:'job', label:'الوظيفة / المكتب', type:'fixed-list', list:JOBS, width:'26%', sortable:true},
       {k:'count', label:'عدد العاملين', type:'number', sortable:true},
@@ -1310,7 +1311,12 @@ function renderTable(sec){
         const listId = sec.key+'-'+col.k+'-list';
         cells += `<td class="name-cell"><input list="${listId}" data-row="${ri}" data-k="${col.k}" value="${(val+'').replace(/"/g,'&quot;')}"></td>`;
       } else if(col.type==='fixed' || col.type==='fixed-list'){
-        cells += `<td class="idx" style="text-align:right;padding-right:10px;">${val}</td>`;
+        if(col.type==='fixed-list' && col.list){
+          const listId = sec.key+'-'+col.k+'-list';
+          cells += `<td class="name-cell"><input list="${listId}" data-row="${ri}" data-k="${col.k}" value="${(val+'').replace(/"/g,'&quot;')}" style="text-align:center;"></td>`;
+        } else {
+          cells += `<td class="idx" style="text-align:right;padding-right:10px;">${val}</td>`;
+        }
       } else {
         cells += `<td><input data-row="${ri}" data-k="${col.k}" value="${(val+'').replace(/"/g,'&quot;')}"></td>`;
       }
@@ -1332,7 +1338,7 @@ function renderTable(sec){
     return `<td></td>`;
   }).join('');
 
-  const datalists = sec.cols.filter(c=>c.type==='text-list').map(c=>
+  const datalists = sec.cols.filter(c=>c.type==='text-list' || c.type==='fixed-list').map(c=>
     `<datalist id="${sec.key}-${c.k}-list">${c.list.map(v=>`<option value="${v}">`).join('')}</datalist>`
   ).join('');
 
@@ -1367,7 +1373,7 @@ function renderTable(sec){
     ${datalists}
     <button class="add-row-btn" onclick="addRow('${sec.key}')">+ إضافة صف جديد</button>`;
 
-  el.querySelectorAll('tbody input').forEach(inp=>{
+  el.querySelectorAll('tbody input, tbody select').forEach(inp=>{
     inp.addEventListener('change', async ()=>{
       const r = Number(inp.dataset.row), k = inp.dataset.k;
       rows[r][k] = inp.type==='number' ? Number(inp.value||0) : inp.value;
@@ -1469,12 +1475,8 @@ function renderBuildings(sec){
     bodyRows += `
       <tr>
         <td class="idx">${ri+1}</td>
-        <td>
-          <select class="building-name-select" data-row="${ri}" data-k="name" style="width:100%;padding:8px;border:none;background:transparent;font-family:'Tajawal';font-size:13px;">
-            <option value="">-- اختر المبنى --</option>
-            ${nameOptions}
-            <option value="__custom__">+ إضافة مبنى جديد</option>
-          </select>
+        <td class="name-cell">
+          <input list="buildings-datalist" data-row="${ri}" data-k="name" value="${(row.name||'').replace(/"/g,'&quot;')}">
         </td>
         <td><input type="number" min="0" data-row="${ri}" data-k="floors" value="${row.floors||''}" style="width:100%;padding:8px;border:none;text-align:center;"></td>
         <td><input type="number" min="0" data-row="${ri}" data-k="classrooms" value="${row.classrooms||''}" style="width:100%;padding:8px;border:none;text-align:center;"></td>
@@ -1561,23 +1563,17 @@ function renderBuildings(sec){
       </div>
       <button class="add-row-btn" onclick="addBuildingRow()">+ إضافة صف جديد</button>
     </div>
+    <datalist id="buildings-datalist">${customBuildings.map(b=>`<option value="${b}">`).join('')}</datalist>
   `;
 
   el.querySelectorAll('tbody select, tbody input').forEach(inp => {
     inp.addEventListener('change', async () => {
       const r = Number(inp.dataset.row), k = inp.dataset.k;
 
-      if(k === 'name' && inp.value === '__custom__'){
-        const newName = prompt('أدخل اسم المبنى الجديد:');
-        if(newName && newName.trim()){
-          customBuildings.push(newName.trim());
-          rows[r][k] = newName.trim();
-        } else {
-          inp.value = rows[r][k] || '';
-          return;
-        }
-      } else {
-        rows[r][k] = inp.type==='number' ? Number(inp.value||0) : inp.value;
+      rows[r][k] = inp.type==='number' ? Number(inp.value||0) : inp.value;
+      // If it's a new building name not in the list, add it
+      if(k === 'name' && inp.value && !customBuildings.includes(inp.value)){
+        customBuildings.push(inp.value);
       }
 
       await saveSection(sec.key, rows);
