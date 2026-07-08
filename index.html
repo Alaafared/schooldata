@@ -384,6 +384,7 @@
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 
@@ -723,6 +724,18 @@ const SECTIONS = [
     rows:35,
     defaultBuildings: DEFAULT_BUILDINGS
   },
+  {key:'teacher-budget', label:'ميزانية المعلمين', type:'budget',
+    title:'ميزانية المعلمين — تحليل العجز والزيادة حسب التخصص',
+    cols:[
+      {k:'specialty', label:'التخصص', type:'text-list', list:SPECIALTIES, width:'22%', sortable:true},
+      {k:'required', label:'العدد المطلوب', type:'number', sortable:true},
+      {k:'actual', label:'العدد الفعلي', type:'number', sortable:true},
+      {k:'diff', label:'الفرق', type:'calc', sortable:true},
+      {k:'status', label:'الحالة', type:'status', sortable:true},
+      {k:'solution', label:'في حالة العجز تم سده بأيه', type:'text', width:'26%', sortable:true},
+    ],
+    rows:12
+  },
 ];
 
 /* ===================== STATE ===================== */
@@ -970,6 +983,14 @@ function getSectionAOA(sec){
     const data = currentData[sec.key] || {};
     return [['البيان','القيمة'], ...INFO_FIELDS.map(([k,label])=>[label, data[k]||''])];
   }
+  if(sec.type==='budget'){
+    const rows = currentData[sec.key] || [];
+    const aoa = [['م','التخصص','العدد المطلوب','العدد الفعلي','الفرق','الحالة','في حالة العجز تم سده بأيه']];
+    rows.forEach((row, i) => {
+      aoa.push([i+1, row.specialty||'', row.required||0, row.actual||0, row.diff||0, row.status||'', row.solution||'']);
+    });
+    return aoa;
+  }
   if(sec.type==='buildings'){
     const rows = currentData[sec.key] || [];
     const aoa = [BUILDINGS_EXCEL_HEADERS];
@@ -1059,6 +1080,8 @@ async function loadSchoolData(){
         };
       } else if(sec.type==='buildings'){
         currentData[sec.key] = generateBuildingsDefault(sec);
+      } else if(sec.type==='budget'){
+        currentData[sec.key] = [];
       } else {
         currentData[sec.key] = generateDefaultRows(sec);
       }
@@ -1153,6 +1176,7 @@ async function deleteRow(secKey, rowIndex, count=1){
   await saveSection(secKey, rows);
   const sec = SECTIONS.find(s => s.key === secKey);
   if(sec.type === 'buildings') renderBuildings(sec);
+  else if(sec.type === 'budget') renderBudget(sec);
   else renderTable(sec);
 }
 
@@ -1204,6 +1228,7 @@ function sortTable(secKey, colKey){
 
   currentData[secKey] = rows;
   if(sec.type === 'buildings') renderBuildings(sec);
+  else if(sec.type === 'budget') renderBudget(sec);
   else renderTable(sec);
 }
 
@@ -1212,6 +1237,7 @@ function renderAll(){
   SECTIONS.forEach(sec => {
     if(sec.type==='info') renderInfo(sec);
     else if(sec.type==='buildings') renderBuildings(sec);
+    else if(sec.type==='budget') renderBudget(sec);
     else renderTable(sec);
   });
 }
@@ -1384,6 +1410,126 @@ function renderTable(sec){
   });
 }
 
+
+/* ===================== BUDGET RENDERER ===================== */
+function renderBudget(sec){
+  const el = document.getElementById('sheet-'+sec.key);
+  let rows = currentData[sec.key];
+  if(rows === undefined || rows === null) rows = [];
+  else rows = rows || [];
+
+  // Ensure all rows have required fields
+  rows.forEach(row => {
+    if(row.required === undefined) row.required = 0;
+    if(row.actual === undefined) row.actual = 0;
+    if(row.diff === undefined) row.diff = 0;
+    if(row.status === undefined) row.status = 'متوازن';
+    if(row.solution === undefined) row.solution = '';
+    if(row.specialty === undefined) row.specialty = '';
+  });
+
+  // Calculate derived values
+  rows.forEach(row => {
+    const req = Number(row.required || 0);
+    const act = Number(row.actual || 0);
+    const diff = act - req;
+    row.diff = diff;
+    row.status = diff > 0 ? 'زيادة' : diff < 0 ? 'عجز' : 'متوازن';
+  });
+
+  const totals = {required:0, actual:0, diff:0};
+  rows.forEach(row => {
+    totals.required += Number(row.required || 0);
+    totals.actual += Number(row.actual || 0);
+    totals.diff += Number(row.diff || 0);
+  });
+
+  let bodyRows = '';
+  rows.forEach((row, ri) => {
+    let statusClass = '';
+    if(row.status === 'زيادة') statusClass = 'st-good';
+    else if(row.status === 'عجز') statusClass = 'st-bad';
+    else statusClass = 'st-none';
+
+    bodyRows += `
+      <tr>
+        <td class="idx">${ri+1}</td>
+        <td class="name-cell"><input list="${sec.key}-specialty-list" data-row="${ri}" data-k="specialty" value="${(row.specialty||'').replace(/"/g,'&quot;')}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="required" value="${row.required || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="actual" value="${row.actual || ''}"></td>
+        <td class="total-cell"><input data-row="${ri}" data-k="diff" value="${row.diff}" disabled style="background:rgba(20,40,48,0.04);"></td>
+        <td><input data-row="${ri}" data-k="status" value="${row.status}" disabled class="status-select ${statusClass}" style="text-align:center;font-weight:700;"></td>
+        <td><input data-row="${ri}" data-k="solution" value="${(row.solution||'').replace(/"/g,'&quot;')}" placeholder="مثال: نقل من مدرسة أخرى، تعيين جديد..." style="text-align:right;"></td>
+        <td class="action-cell"><button class="delete-btn" onclick="deleteRow('${sec.key}', ${ri}, 1)">🗑️ حذف</button></td>
+      </tr>
+    `;
+  });
+
+  const headerHTML = ['م', 'التخصص', 'العدد المطلوب', 'العدد الفعلي', 'الفرق', 'الحالة', 'في حالة العجز تم سده بأيه', 'إجراء'].map((h, i) => {
+    if(i === 0 || i === 7) return `<th>${h}</th>`;
+    const col = sec.cols[i-1];
+    if(!col.sortable) return `<th>${h}</th>`;
+    const sortClass = (sortState.key === sec.key && sortState.col === col.k) ? sortState.dir : '';
+    return `<th class="sortable ${sortClass}" onclick="sortTable('${sec.key}', '${col.k}')">${h}</th>`;
+  }).join('');
+
+  const datalists = `<datalist id="${sec.key}-specialty-list">${SPECIALTIES.map(v=>`<option value="${v}">`).join('')}</datalist>`;
+
+  el.innerHTML = `
+    <div class="sheet-head">
+      <div><h2>${sec.title}</h2><p>${rows.length} صف — العمودان «الفرق» و«الحالة» يُحسبان تلقائيًا — ${currentSchool}</p></div>
+      <div class="sheet-tools">
+        <button class="tool-btn" onclick="printSection('${sec.key}')">🖨️ طباعة</button>
+        <button class="tool-btn" onclick="exportSectionExcel('${sec.key}')">📊 Excel</button>
+        <span class="save-state saved">محفوظ في السحابة</span>
+      </div>
+    </div>
+    <!-- <div class="sheet-body">
+      <div class="legend-row" style="margin-bottom:18px;">
+        <span class="legend-chip st-good">زيادة (فعلي > مطلوب)</span>
+        <span class="legend-chip st-bad">عجز (فعلي < مطلوب)</span>
+        <span class="legend-chip st-none">متوازن (فعلي = مطلوب)</span>
+      </div> -->
+      <div class="table-scroll">
+        <table>
+          <thead><tr>${headerHTML}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="text-align:right;padding-right:14px;font-weight:700;">الإجمالي</td>
+              <td>${totals.required}</td>
+              <td>${totals.actual}</td>
+              <td>${totals.diff}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    ${datalists}
+    <button class="add-row-btn" onclick="addRow('${sec.key}')">+ إضافة صف جديد</button>
+  `;
+
+  el.querySelectorAll('tbody input').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const r = Number(inp.dataset.row), k = inp.dataset.k;
+      const row = rows[r];
+      row[k] = inp.type === 'number' ? Number(inp.value || 0) : inp.value;
+
+      // Recalculate derived
+      const req = Number(row.required || 0);
+      const act = Number(row.actual || 0);
+      row.diff = act - req;
+      row.status = row.diff > 0 ? 'زيادة' : row.diff < 0 ? 'عجز' : 'متوازن';
+
+      await saveSection(sec.key, rows);
+      renderBudget(sec);
+    });
+  });
+}
+
 /* ===================== ADD ROW ===================== */
 async function addRow(secKey){
   const sec = SECTIONS.find(s => s.key === secKey);
@@ -1392,7 +1538,10 @@ async function addRow(secKey){
   if(rows === undefined || rows === null) rows = generateDefaultRows(sec);
   else rows = rows || [];
 
-  if(sec.grouped){
+  if(sec.type === 'budget'){
+    let newRow = {specialty:'', required:0, actual:0, diff:0, status:'متوازن', solution:''};
+    rows.push(newRow);
+  } else if(sec.grouped){
     // Add a full group (all grade labels)
     sec.gradeLabels.forEach(grade => {
       let newRow = {};
@@ -1414,6 +1563,7 @@ async function addRow(secKey){
 
   await saveSection(secKey, rows);
   if(sec.type === 'buildings') renderBuildings(sec);
+  else if(sec.type === 'budget') renderBudget(sec);
   else renderTable(sec);
 }
 
@@ -1531,12 +1681,12 @@ function renderBuildings(sec){
         <span class="save-state saved">محفوظ في السحابة</span>
       </div>
     </div>
-    <div class="sheet-body">
+    <!-- <div class="sheet-body">
       <div class="legend-row">
         <span class="legend-chip st-good">متوفر بحالة جيدة</span>
         <span class="legend-chip st-bad">متوفر بحالة غير جيدة</span>
         <span class="legend-chip st-none">غير متوفر</span>
-      </div>
+      </div> -->
       <div class="table-scroll">
         <table>
           <thead>
