@@ -385,6 +385,7 @@
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 
@@ -641,7 +642,8 @@ const SPECIALTIES = [
   "فنى هندسة وميكنة زراعية",
   "فني طاهي"
 ];
-const SUBJECTS = ["اللغة العربية والتربية الدينية","اللغة الانجليزية","رياضيات","فيزياء","كيمياء","حاسب الي","دراسات اجتماعية","تربية وطنية","اللغة الفرنسية"];
+const SUBJECTS = ["اللغة العربية","اللغة الانجليزية","الرياضيات","الكيمياء","الفيزياء","الدراسات الاجتماعية","الحاسب الالي","التربية الوطنية","التربية الرياضية بنين","التربية الرياضية بنات"];
+const BUDGET_ITEMS = [...SUBJECTS, ...SPECIALTIES];
 const JOBS = ["شئون عاملين","شئون طلبة","مكتب التشغيل","مكتب الأخصائي الاجتماعي","مكتب الأخصائي النفسي","سكرتير المدرسة","أخصائي مكتبة","أخصائي تكنولوجيا","أخصائي تربية فنية","أخصائي تربية رياضية","أخصائي تربية موسيقية","أخصائي تربية صحية","أخصائي إعلام","أخصائي تغذية","أخصائي أمن","أخصائي صيانة","أخصائي نظافة","عمال المدرسة","مكتب الصيانة","مكتب المخازن","مكتب المتابعة","وكيل المدرسة","وكيل المدرسة للشئون الفنية"];
 
 const DEFAULT_BUILDINGS = [
@@ -724,16 +726,21 @@ const SECTIONS = [
     defaultBuildings: DEFAULT_BUILDINGS
   },
   {key:'teacher-budget', label:'ميزانية المعلمين', type:'budget',
-    title:'ميزانية المعلمين — تحليل العجز والزيادة حسب التخصص',
+    title:'ميزانية المعلمين — تحليل العجز والزيادة بالحصص',
     cols:[
-      {k:'specialty', label:'التخصص', type:'text-list', list:SPECIALTIES, width:'22%', sortable:true},
-      {k:'required', label:'العدد المطلوب', type:'number', sortable:true},
-      {k:'actual', label:'العدد الفعلي', type:'number', sortable:true},
+      {k:'subject', label:'المادة والتخصص', type:'text-list', list:BUDGET_ITEMS, width:'18%', sortable:true},
+      {k:'required', label:'اللازم<br>بالحصص', type:'number', sortable:true},
+      {k:'teacher_normal', label:'معلم<br>(18 حصة)', type:'number', sortable:true},
+      {k:'teacher_first', label:'معلم أول<br>(17 حصة)', type:'number', sortable:true},
+      {k:'teacher_first_a', label:'معلم أول أ<br>(16 حصة)', type:'number', sortable:true},
+      {k:'teacher_expert', label:'معلم خبير<br>(16 حصة)', type:'number', sortable:true},
+      {k:'teacher_senior', label:'معلم كبير<br>(14 حصة)', type:'number', sortable:true},
+      {k:'actual', label:'الموجود<br>بالحصص', type:'calc', sortable:true},
       {k:'diff', label:'الفرق', type:'calc', sortable:true},
       {k:'status', label:'الحالة', type:'status', sortable:true},
-      {k:'solution', label:'في حالة العجز تم سده بأيه', type:'text', width:'26%', sortable:true},
+      {k:'solution', label:'كيفية سد العجز', type:'text-list', list:["فوق النصاب","ندب إلى المدرسة","مدرس بالحصة","خدمة عامة","مشاركة مجتمعية"], width:'16%', sortable:true},
     ],
-    rows:12
+    rows:10
   },
 ];
 
@@ -984,9 +991,9 @@ function getSectionAOA(sec){
   }
   if(sec.type==='budget'){
     const rows = currentData[sec.key] || [];
-    const aoa = [['م','التخصص','العدد المطلوب','العدد الفعلي','الفرق','الحالة','في حالة العجز تم سده بأيه']];
+    const aoa = [['م','المادة والتخصص','اللازم بالحصص','معلم (18)','معلم أول (17)','معلم أول أ (16)','معلم خبير (16)','معلم كبير (14)','الموجود بالحصص','الفرق','الحالة','كيفية سد العجز']];
     rows.forEach((row, i) => {
-      aoa.push([i+1, row.specialty||'', row.required||0, row.actual||0, row.diff||0, row.status||'', row.solution||'']);
+      aoa.push([i+1, row.subject||'', row.required||0, row.teacher_normal||0, row.teacher_first||0, row.teacher_first_a||0, row.teacher_expert||0, row.teacher_senior||0, row.actual||0, row.diff||0, row.status||'', row.solution||'']);
     });
     return aoa;
   }
@@ -1419,26 +1426,43 @@ function renderBudget(sec){
 
   // Ensure all rows have required fields
   rows.forEach(row => {
+    if(row.subject === undefined) row.subject = '';
     if(row.required === undefined) row.required = 0;
+    if(row.teacher_normal === undefined) row.teacher_normal = 0;
+    if(row.teacher_first === undefined) row.teacher_first = 0;
+    if(row.teacher_first_a === undefined) row.teacher_first_a = 0;
+    if(row.teacher_expert === undefined) row.teacher_expert = 0;
+    if(row.teacher_senior === undefined) row.teacher_senior = 0;
     if(row.actual === undefined) row.actual = 0;
     if(row.diff === undefined) row.diff = 0;
     if(row.status === undefined) row.status = 'متوازن';
     if(row.solution === undefined) row.solution = '';
-    if(row.specialty === undefined) row.specialty = '';
   });
 
-  // Calculate derived values
+  // Calculate derived values: actual = sum of teachers * their hours
+  // 1 معلم = 18, 1 معلم أول = 17, 1 معلم أول أ = 16, 1 معلم خبير = 16, 1 معلم كبير = 14
   rows.forEach(row => {
-    const req = Number(row.required || 0);
-    const act = Number(row.actual || 0);
-    const diff = act - req;
-    row.diff = diff;
-    row.status = diff > 0 ? 'زيادة' : diff < 0 ? 'عجز' : 'متوازن';
+    const normal = Number(row.teacher_normal || 0) * 18;
+    const first = Number(row.teacher_first || 0) * 17;
+    const firstA = Number(row.teacher_first_a || 0) * 16;
+    const expert = Number(row.teacher_expert || 0) * 16;
+    const senior = Number(row.teacher_senior || 0) * 14;
+    row.actual = normal + first + firstA + expert + senior;
+    row.diff = Number(row.required || 0) - row.actual;
+    if(row.diff > 0) row.status = 'عجز';
+    else if(row.diff < 0) row.status = 'زيادة';
+    else row.status = 'متوازن';
   });
 
-  const totals = {required:0, actual:0, diff:0};
+  // Calculate totals
+  const totals = {required:0, teacher_normal:0, teacher_first:0, teacher_first_a:0, teacher_expert:0, teacher_senior:0, actual:0, diff:0};
   rows.forEach(row => {
     totals.required += Number(row.required || 0);
+    totals.teacher_normal += Number(row.teacher_normal || 0);
+    totals.teacher_first += Number(row.teacher_first || 0);
+    totals.teacher_first_a += Number(row.teacher_first_a || 0);
+    totals.teacher_expert += Number(row.teacher_expert || 0);
+    totals.teacher_senior += Number(row.teacher_senior || 0);
     totals.actual += Number(row.actual || 0);
     totals.diff += Number(row.diff || 0);
   });
@@ -1453,42 +1477,52 @@ function renderBudget(sec){
     bodyRows += `
       <tr>
         <td class="idx">${ri+1}</td>
-        <td class="name-cell"><input list="${sec.key}-specialty-list" data-row="${ri}" data-k="specialty" value="${(row.specialty||'').replace(/"/g,'&quot;')}"></td>
+        <td class="name-cell"><input list="${sec.key}-subject-list" data-row="${ri}" data-k="subject" value="${(row.subject||'').replace(/"/g,'&quot;')}"></td>
         <td><input type="number" min="0" data-row="${ri}" data-k="required" value="${row.required || ''}"></td>
-        <td><input type="number" min="0" data-row="${ri}" data-k="actual" value="${row.actual || ''}"></td>
-        <td class="total-cell"><input data-row="${ri}" data-k="diff" value="${row.diff}" disabled style="background:rgba(20,40,48,0.04);"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_normal" value="${row.teacher_normal || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_first" value="${row.teacher_first || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_first_a" value="${row.teacher_first_a || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_expert" value="${row.teacher_expert || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_senior" value="${row.teacher_senior || ''}"></td>
+        <td class="total-cell"><input data-row="${ri}" data-k="actual" value="${row.actual}" disabled></td>
+        <td class="total-cell"><input data-row="${ri}" data-k="diff" value="${row.diff}" disabled></td>
         <td><input data-row="${ri}" data-k="status" value="${row.status}" disabled class="status-select ${statusClass}" style="text-align:center;font-weight:700;"></td>
-        <td><input data-row="${ri}" data-k="solution" value="${(row.solution||'').replace(/"/g,'&quot;')}" placeholder="مثال: نقل من مدرسة أخرى، تعيين جديد..." style="text-align:right;"></td>
+        <td class="name-cell"><input list="${sec.key}-solution-list" data-row="${ri}" data-k="solution" value="${(row.solution||'').replace(/"/g,'&quot;')}"></td>
         <td class="action-cell"><button class="delete-btn" onclick="deleteRow('${sec.key}', ${ri}, 1)">🗑️ حذف</button></td>
       </tr>
     `;
   });
 
-  const headerHTML = ['م', 'التخصص', 'العدد المطلوب', 'العدد الفعلي', 'الفرق', 'الحالة', 'في حالة العجز تم سده بأيه', 'إجراء'].map((h, i) => {
-    if(i === 0 || i === 7) return `<th>${h}</th>`;
+  const headerLabels = ['م', 'المادة والتخصص', 'اللازم<br>بالحصص', 'معلم<br>(18)', 'معلم أول<br>(17)', 'معلم أول أ<br>(16)', 'معلم خبير<br>(16)', 'معلم كبير<br>(14)', 'الموجود<br>بالحصص', 'الفرق', 'الحالة', 'كيفية سد<br>العجز', 'إجراء'];
+
+  const headerHTML = headerLabels.map((h, i) => {
+    if(i === 0 || i === headerLabels.length - 1) return `<th>${h}</th>`;
     const col = sec.cols[i-1];
-    if(!col.sortable) return `<th>${h}</th>`;
+    if(!col || !col.sortable) return `<th>${h}</th>`;
     const sortClass = (sortState.key === sec.key && sortState.col === col.k) ? sortState.dir : '';
     return `<th class="sortable ${sortClass}" onclick="sortTable('${sec.key}', '${col.k}')">${h}</th>`;
   }).join('');
 
-  const datalists = `<datalist id="${sec.key}-specialty-list">${SPECIALTIES.map(v=>`<option value="${v}">`).join('')}</datalist>`;
+  const datalists = `
+    <datalist id="${sec.key}-subject-list">${BUDGET_ITEMS.map(v=>`<option value="${v}">`).join('')}</datalist>
+    <datalist id="${sec.key}-solution-list"><option value="فوق النصاب"><option value="ندب إلى المدرسة"><option value="مدرس بالحصة"><option value="خدمة عامة"><option value="مشاركة مجتمعية"></datalist>
+  `;
 
   el.innerHTML = `
     <div class="sheet-head">
-      <div><h2>${sec.title}</h2><p>${rows.length} صف — العمودان «الفرق» و«الحالة» يُحسبان تلقائيًا — ${currentSchool}</p></div>
+      <div><h2>${sec.title}</h2><p>${rows.length} صف — الموجود بالحصص = (معلم×18) + (أول×17) + (أول أ×16) + (خبير×16) + (كبير×14) — ${currentSchool}</p></div>
       <div class="sheet-tools">
         <button class="tool-btn" onclick="printSection('${sec.key}')">🖨️ طباعة</button>
         <button class="tool-btn" onclick="exportSectionExcel('${sec.key}')">📊 Excel</button>
         <span class="save-state saved">محفوظ في السحابة</span>
       </div>
     </div>
-    <!-- <div class="sheet-body">
+    <div class="sheet-body">
       <div class="legend-row" style="margin-bottom:18px;">
-        <span class="legend-chip st-good">زيادة (فعلي > مطلوب)</span>
-        <span class="legend-chip st-bad">عجز (فعلي < مطلوب)</span>
-        <span class="legend-chip st-none">متوازن (فعلي = مطلوب)</span>
-      </div> -->
+        <span class="legend-chip st-good">زيادة (الموجود > اللازم)</span>
+        <span class="legend-chip st-bad">عجز (الموجود < اللازم)</span>
+        <span class="legend-chip st-none">متوازن (الموجود = اللازم)</span>
+      </div>
       <div class="table-scroll">
         <table>
           <thead><tr>${headerHTML}</tr></thead>
@@ -1497,6 +1531,11 @@ function renderBudget(sec){
             <tr>
               <td colspan="2" style="text-align:right;padding-right:14px;font-weight:700;">الإجمالي</td>
               <td>${totals.required}</td>
+              <td>${totals.teacher_normal}</td>
+              <td>${totals.teacher_first}</td>
+              <td>${totals.teacher_first_a}</td>
+              <td>${totals.teacher_expert}</td>
+              <td>${totals.teacher_senior}</td>
               <td>${totals.actual}</td>
               <td>${totals.diff}</td>
               <td></td>
@@ -1514,15 +1553,7 @@ function renderBudget(sec){
   el.querySelectorAll('tbody input').forEach(inp => {
     inp.addEventListener('change', async () => {
       const r = Number(inp.dataset.row), k = inp.dataset.k;
-      const row = rows[r];
-      row[k] = inp.type === 'number' ? Number(inp.value || 0) : inp.value;
-
-      // Recalculate derived
-      const req = Number(row.required || 0);
-      const act = Number(row.actual || 0);
-      row.diff = act - req;
-      row.status = row.diff > 0 ? 'زيادة' : row.diff < 0 ? 'عجز' : 'متوازن';
-
+      rows[r][k] = inp.type === 'number' ? Number(inp.value || 0) : inp.value;
       await saveSection(sec.key, rows);
       renderBudget(sec);
     });
@@ -1538,7 +1569,7 @@ async function addRow(secKey){
   else rows = rows || [];
 
   if(sec.type === 'budget'){
-    let newRow = {specialty:'', required:0, actual:0, diff:0, status:'متوازن', solution:''};
+    let newRow = {subject:'', required:0, teacher_normal:0, teacher_first:0, teacher_first_a:0, teacher_expert:0, teacher_senior:0, actual:0, diff:0, status:'متوازن', solution:''};
     rows.push(newRow);
   } else if(sec.grouped){
     // Add a full group (all grade labels)
