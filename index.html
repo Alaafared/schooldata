@@ -354,7 +354,27 @@
   }
   .global-toolbar .tool-btn:hover{border-color:var(--cyan); color:#fff;}
 
-  @media print{
+  
+  /* QR Code */
+  .qr-wrap{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px 10px 14px; margin-top:16px;
+    border-top:2px dashed var(--paper-line); gap:10px;
+  }
+  .qr-wrap canvas, .qr-wrap img{
+    display:block; margin:0 auto;
+    border:4px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.15);
+  }
+  .qr-wrap .qr-label{
+    font-family:'Changa',sans-serif; font-size:12px; color:var(--ink-soft);
+    text-align:center; direction:rtl;
+  }
+  .qr-wrap .qr-hint{
+    font-family:'Tajawal',sans-serif; font-size:11px; color:#888;
+    text-align:center; margin-top:4px;
+  }
+
+@media print{
     body{background:#fff !important; color:#000;}
     #loginScreen, #adminSelector, #schoolSelector, #userPanelBtn, #userPanel,
     .stamp-wrap .tb-eyebrow, nav#tabs, .logout-btn, .sync-indicator, footer,
@@ -385,6 +405,8 @@
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <base target="_blank">
 </head>
 <body>
@@ -477,6 +499,8 @@
     <div class="global-toolbar">
       <button class="tool-btn" onclick="printAll()">🖨️ طباعة كل الصفحات</button>
       <button class="tool-btn" onclick="exportAllExcel()">📊 تصدير الكل إلى Excel</button>
+      <button class="tool-btn" onclick="refreshActiveQR()">🔳 تحديث QR</button>
+      <button class="tool-btn" onclick="testQR()">🧪 اختبار QR</button>
     </div>
     <nav id="tabs"></nav>
   </div>
@@ -956,20 +980,22 @@ function buildTabs(){
 function switchTab(key){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.key===key));
   document.querySelectorAll('.sheet').forEach(s=>s.classList.toggle('active', s.id==='sheet-'+key));
+  setTimeout(()=>generateQR(key), 100);
 }
 
 /* ===================== PRINT ===================== */
 function printSection(key){
   switchTab(key);
-  setTimeout(()=> window.print(), 150);
+  setTimeout(()=>{ generateQR(key); setTimeout(()=>window.print(), 300); }, 150);
 }
 
 function printAll(){
+  refreshAllQR();
   document.body.classList.add('print-all-mode');
   setTimeout(()=>{
     window.print();
     setTimeout(()=> document.body.classList.remove('print-all-mode'), 300);
-  }, 100);
+  }, 800);
 }
 
 /* ===================== EXCEL EXPORT ===================== */
@@ -1246,6 +1272,105 @@ function renderAll(){
     else if(sec.type==='budget') renderBudget(sec);
     else renderTable(sec);
   });
+  setTimeout(refreshActiveQR, 300);
+}
+
+
+/* ===================== QR CODE ===================== */
+function generateQR(secKey){
+  if(typeof QRCode === 'undefined'){
+    setTimeout(()=>generateQR(secKey), 600); return;
+  }
+  const sec = SECTIONS.find(s => s.key === secKey);
+  if(!sec) return;
+  const sheet = document.getElementById('sheet-'+secKey);
+  if(!sheet) return;
+  if(!sheet.classList.contains('active')) return;
+
+  const old = sheet.querySelector('.qr-wrap');
+  if(old) old.remove();
+
+  const adminIdx = ADMINISTRATIONS.indexOf(currentAdministration);
+  const adminCode = adminIdx >= 0 ? String(adminIdx) : '99';
+
+  let schoolHash = 0;
+  const schoolName = currentSchool || 'NOSCHOOL';
+  for(let i = 0; i < schoolName.length; i++){
+    schoolHash = ((schoolHash << 5) - schoolHash) + schoolName.charCodeAt(i);
+    schoolHash = schoolHash & schoolHash;
+  }
+  const schoolCode = Math.abs(schoolHash).toString(36).substring(0, 6).toUpperCase();
+
+  // Auto-detect base URL from current location
+// Works automatically on GitHub Pages, Netlify, etc.
+function getBaseUrl(){
+  const loc = window.location;
+  // If running on file:// (local), return empty (relative)
+  if(loc.protocol === 'file:') return '';
+  // Otherwise use the current origin + pathname directory
+  let path = loc.pathname;
+  // Remove filename from path (keep directory)
+  const lastSlash = path.lastIndexOf('/');
+  if(lastSlash !== -1) path = path.substring(0, lastSlash + 1);
+  return loc.origin + path;
+}
+
+const viewerUrl = getBaseUrl() + 'viewer.html?a=' + adminCode + '&s=' + schoolCode + '&sec=' + secKey;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'qr-wrap';
+  const qrDiv = document.createElement('div');
+  const label = document.createElement('div');
+  label.className = 'qr-label';
+  label.textContent = sec.label;
+  const hint = document.createElement('div');
+  hint.className = 'qr-hint';
+  hint.textContent = 'امسح لفتح صفحة البيانات';
+
+  wrap.appendChild(qrDiv);
+  wrap.appendChild(label);
+  wrap.appendChild(hint);
+  sheet.appendChild(wrap);
+
+  try {
+    new QRCode(qrDiv, {
+      text: viewerUrl,
+      width: 180,
+      height: 180,
+      colorDark: "#000",
+      colorLight: "#fff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(err) {
+    console.error('QR error:', err);
+  }
+}
+
+function refreshActiveQR(){
+  const active = document.querySelector('.sheet.active');
+  if(active){
+    generateQR(active.id.replace('sheet-', ''));
+  }
+}
+
+function refreshAllQR(){
+  if(typeof QRCode === 'undefined'){ setTimeout(refreshAllQR, 800); return; }
+  SECTIONS.forEach(sec => generateQR(sec.key));
+}
+
+function testQR(){
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:2px solid #000;padding:20px;z-index:99999;text-align:center;';
+  div.innerHTML = '<h3 style="margin:0 0 10px;font-family:Changa;">اختبار QR</h3><div id="test-qr"></div><p id="test-url" style="font-size:10px;color:#666;word-break:break-all;"></p><br><button onclick="this.parentElement.remove()" style="padding:8px 16px;font-family:Changa;cursor:pointer;">إغلاق</button>';
+  document.body.appendChild(div);
+  try{
+    const testUrl = getBaseUrl() + 'viewer.html?a=4&s=ABC123&sec=school-info';
+    document.getElementById('test-url').textContent = testUrl;
+    new QRCode(document.getElementById('test-qr'), {
+      text: testUrl,
+      width: 150, height: 150, colorDark: "#000", colorLight: "#fff"
+    });
+  }catch(e){ alert('خطأ: ' + e.message); }
 }
 
 function calcRowTotal(row, cols){
@@ -1783,6 +1908,14 @@ async function addBuildingRow(){
 /* ===================== INIT ===================== */
 ['loginEmail','loginPassword'].forEach(id=>{
   document.getElementById(id).addEventListener('keypress', e=>{ if(e.key==='Enter') doLogin(); });
+});
+
+
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    const active = document.querySelector('.sheet.active');
+    if(active) generateQR(active.id.replace('sheet-', ''));
+  }, 1500);
 });
 </script>
 </body>
